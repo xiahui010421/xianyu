@@ -545,20 +545,8 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
 
 {system_prompt}
 """
-    user_content_list = []
-
-    # 先添加图片内容
-    if image_paths:
-        for path in image_paths:
-            base64_image = encode_image_to_base64(path)
-            if base64_image:
-                user_content_list.append(
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
-
-    # 再添加文本内容
-    user_content_list.append({"type": "text", "text": combined_text_prompt})
-
-    messages = [{"role": "user", "content": user_content_list}]
+    # DeepSeek API不支持image_url格式，只发送纯文本
+    messages = [{"role": "user", "content": combined_text_prompt}]
 
     # 保存最终传输内容到日志文件
     try:
