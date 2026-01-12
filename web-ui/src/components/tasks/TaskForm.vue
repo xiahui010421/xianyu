@@ -59,7 +59,7 @@ function handleSubmit() {
 
   // Filter out fields that shouldn't be sent in update requests
   const { id, is_running, ...submitData } = form.value as any
-  if (submitData.account_state_file === '') {
+  if (submitData.account_state_file === '' || submitData.account_state_file === 'auto') {
     submitData.account_state_file = null
   }
   emit('submit', submitData)
@@ -111,7 +111,7 @@ function handleSubmit() {
               <SelectValue placeholder="未绑定（自动选择）" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">未绑定（自动选择）</SelectItem>
+              <SelectItem value="auto">未绑定（自动选择）</SelectItem>
               <SelectItem v-for="account in accountOptions || []" :key="account.path" :value="account.path">
                 {{ account.name }}
               </SelectItem>

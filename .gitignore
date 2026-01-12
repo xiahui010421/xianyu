@@ -1,7 +1,6 @@
 .idea
 *.iml
 xianyu_state.json
-.env
 .aider*
 images/
 logs/
@@ -12,3 +11,5 @@ dist/
 state/
 config.json
 prompts/
+venv/
+# env/
