@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: ai-goofish-monitor-app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/dist
+    restart: unless-stopped

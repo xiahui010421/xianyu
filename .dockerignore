@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+.env
+.venv
+logs/
+jsonl/
+web-ui/node_modules
+web-ui/dist
+.git
+.DS_Store
+task_images/
+images/
+archive/
+tests/
+*.md
+!README.md
