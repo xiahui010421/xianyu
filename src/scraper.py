@@ -203,6 +203,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
     min_price = task_config.get('min_price')
     max_price = task_config.get('max_price')
     ai_prompt_text = task_config.get('ai_prompt_text', '')
+    max_items_per_round = task_config.get('max_items_per_round', 0)
 
     processed_links = set()
     output_filename = os.path.join("jsonl", f"{keyword.replace(' ', '_')}_full_data.jsonl")
@@ -477,6 +478,8 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                     basic_items = await _parse_search_results_json(await current_response.json(), f"第 {page_num} 页")
                     if not basic_items:
                         break
+                    if max_items_per_round > 0:
+                        basic_items = basic_items[:max_items_per_round]
 
                     total_items_on_page = len(basic_items)
                     for i, item_data in enumerate(basic_items, 1):
