@@ -42,7 +42,7 @@ const emit = defineEmits<{
           <TableHead>价格范围</TableHead>
           <TableHead>筛选条件</TableHead>
           <TableHead>最大页数</TableHead>
-          <TableHead>AI 标准</TableHead>
+          <TableHead>规则文件</TableHead>
           <TableHead>定时规则</TableHead>
           <TableHead class="text-right">操作</TableHead>
         </TableRow>
@@ -100,14 +100,9 @@ const emit = defineEmits<{
               {{ task.max_pages || 3 }}
             </TableCell>
             <TableCell class="text-sm text-gray-500">
-              <div class="flex items-center gap-2">
-                <code class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">
-                  {{ (task.ai_prompt_criteria_file || 'N/A').replace('prompts/', '') }}
-                </code>
-                <Button size="sm" variant="outline" @click="emit('refresh-criteria', task)">
-                  重新生成
-                </Button>
-              </div>
+              <code class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">
+                {{ (task.ai_prompt_criteria_file || 'N/A').replace('prompts/', '') }}
+              </code>
             </TableCell>
             <TableCell class="text-sm text-gray-500">
               {{ task.cron || '手动触发' }}

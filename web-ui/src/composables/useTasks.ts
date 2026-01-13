@@ -41,7 +41,7 @@ export function useTasks() {
     isLoading.value = true
     error.value = null
     try {
-      await taskApi.createTaskWithAI(data)
+      await taskApi.createTask(data)
       // Refresh the list to show the new task
       await fetchTasks()
     } catch (e) {

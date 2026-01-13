@@ -47,11 +47,11 @@ watchEffect(() => {
 })
 
 function handleSubmit() {
-  // Basic validation
-  if (!form.value.task_name || !form.value.keyword || !form.value.description) {
+  // Basic validation（纯爬虫模式：只强制任务名称和关键词）
+  if (!form.value.task_name || !form.value.keyword) {
     toast({
       title: '信息不完整',
-      description: '任务名称、关键词和详细需求不能为空。',
+      description: '任务名称和关键词不能为空。',
       variant: 'destructive',
     })
     return
@@ -83,8 +83,7 @@ function handleSubmit() {
           id="description"
           v-model="form.description"
           class="col-span-3"
-          placeholder="请用自然语言详细描述你的购买需求，AI将根据此描述生成分析标准..."
-          required
+          placeholder="（可选）可以简单写几句备注，方便自己记忆；不再用于 AI 分析。"
         />
       </div>
       <div class="grid grid-cols-4 items-center gap-4">

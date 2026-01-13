@@ -26,6 +26,7 @@ from src.config import (
     RUN_HEADLESS,
     RUNNING_IN_DOCKER,
     STATE_FILE,
+    SKIP_AI_ANALYSIS,
 )
 from src.parsers import (
     _parse_search_results_json,
@@ -493,6 +494,33 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                             log_time(f"[页内进度 {i}/{total_items_on_page}] 商品 '{item_data['商品标题'][:20]}...' 已存在，跳过。")
                             continue
 
+                        # 纯爬虫模式：完全跳过详情页、卖家主页和图片下载，直接保存和推送
+                        if SKIP_AI_ANALYSIS:
+                            log_time(
+                                f"[页内进度 {i}/{total_items_on_page}] 发现新商品（纯爬虫模式，跳过详情页和AI）: "
+                                f"{item_data['商品标题'][:30]}..."
+                            )
+                            final_record = {
+                                "爬取时间": datetime.now().isoformat(),
+                                "搜索关键字": keyword,
+                                "任务名称": task_config.get('task_name', 'Untitled Task'),
+                                "商品信息": item_data,
+                                # 保持与原有结构兼容，卖家信息留空对象，前端不会报错
+                                "卖家信息": {},
+                            }
+                            # 保存记录
+                            await save_to_jsonl(final_record, keyword)
+                            # 直接推送通知（不经过AI筛选）
+                            await send_ntfy_notification(item_data, "新商品（未经过AI分析）")
+
+                            processed_links.add(unique_key)
+                            processed_item_count += 1
+                            log_time(f"商品处理流程完毕（纯爬虫模式）。累计处理 {processed_item_count} 个新商品。")
+                            # 仍然保持主要延迟，降低被风控概率
+                            log_time("[反爬] 执行一次主要的随机延迟以模拟用户浏览间隔（纯爬虫模式）...")
+                            await random_sleep(15, 30)
+                            continue
+
                         log_time(f"[页内进度 {i}/{total_items_on_page}] 发现新商品，获取详情: {item_data['商品标题'][:30]}...")
                         # --- 修改: 访问详情页前的等待时间，模拟用户在列表页上看了一会儿 ---
                         await random_sleep(3, 6) # 原来是 (2, 4)
@@ -566,63 +594,51 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                 }
 
                                 # --- START: Real-time AI Analysis & Notification ---
-                                from src.config import SKIP_AI_ANALYSIS
+                                log_time(f"开始对商品 #{item_data['商品ID']} 进行实时AI分析...")
+                                # 1. Download images
+                                image_urls = item_data.get('商品图片列表', [])
+                                downloaded_image_paths = await download_all_images(
+                                    item_data['商品ID'],
+                                    image_urls,
+                                    task_config.get('task_name', 'default')
+                                )
 
-                                # 检查是否跳过AI分析并直接发送通知
-                                if SKIP_AI_ANALYSIS:
-                                    log_time("环境变量 SKIP_AI_ANALYSIS 已设置，跳过AI分析并直接发送通知...")
-                                    # 下载图片
-                                    image_urls = item_data.get('商品图片列表', [])
-                                    downloaded_image_paths = await download_all_images(item_data['商品ID'], image_urls, task_config.get('task_name', 'default'))
-
-                                    # 删除下载的图片文件，节省空间
-                                    for img_path in downloaded_image_paths:
-                                        try:
-                                            if os.path.exists(img_path):
-                                                os.remove(img_path)
-                                                print(f"   [图片] 已删除临时图片文件: {img_path}")
-                                        except Exception as e:
-                                            print(f"   [图片] 删除图片文件时出错: {e}")
-
-                                    # 直接发送通知，将所有商品标记为推荐
-                                    log_time("商品已跳过AI分析，准备发送通知...")
-                                    await send_ntfy_notification(item_data, "商品已跳过AI分析，直接通知")
+                                # 2. Get AI analysis
+                                ai_analysis_result = None
+                                if ai_prompt_text:
+                                    try:
+                                        # 注意：这里我们将整个记录传给AI，让它拥有最全的上下文
+                                        ai_analysis_result = await get_ai_analysis(
+                                            final_record,
+                                            downloaded_image_paths,
+                                            prompt_text=ai_prompt_text
+                                        )
+                                        if ai_analysis_result:
+                                            final_record['ai_analysis'] = ai_analysis_result
+                                            log_time(f"AI分析完成。推荐状态: {ai_analysis_result.get('is_recommended')}")
+                                        else:
+                                            final_record['ai_analysis'] = {
+                                                'error': 'AI analysis returned None after retries.'
+                                            }
+                                    except Exception as e:
+                                        print(f"   -> AI分析过程中发生严重错误: {e}")
+                                        final_record['ai_analysis'] = {'error': str(e)}
                                 else:
-                                    log_time(f"开始对商品 #{item_data['商品ID']} 进行实时AI分析...")
-                                    # 1. Download images
-                                    image_urls = item_data.get('商品图片列表', [])
-                                    downloaded_image_paths = await download_all_images(item_data['商品ID'], image_urls, task_config.get('task_name', 'default'))
+                                    print("   -> 任务未配置AI prompt，跳过分析。")
 
-                                    # 2. Get AI analysis
-                                    ai_analysis_result = None
-                                    if ai_prompt_text:
-                                        try:
-                                            # 注意：这里我们将整个记录传给AI，让它拥有最全的上下文
-                                            ai_analysis_result = await get_ai_analysis(final_record, downloaded_image_paths, prompt_text=ai_prompt_text)
-                                            if ai_analysis_result:
-                                                final_record['ai_analysis'] = ai_analysis_result
-                                                log_time(f"AI分析完成。推荐状态: {ai_analysis_result.get('is_recommended')}")
-                                            else:
-                                                final_record['ai_analysis'] = {'error': 'AI analysis returned None after retries.'}
-                                        except Exception as e:
-                                            print(f"   -> AI分析过程中发生严重错误: {e}")
-                                            final_record['ai_analysis'] = {'error': str(e)}
-                                    else:
-                                        print("   -> 任务未配置AI prompt，跳过分析。")
+                                # 删除下载的图片文件，节省空间
+                                for img_path in downloaded_image_paths:
+                                    try:
+                                        if os.path.exists(img_path):
+                                            os.remove(img_path)
+                                            print(f"   [图片] 已删除临时图片文件: {img_path}")
+                                    except Exception as e:
+                                        print(f"   [图片] 删除图片文件时出错: {e}")
 
-                                    # 删除下载的图片文件，节省空间
-                                    for img_path in downloaded_image_paths:
-                                        try:
-                                            if os.path.exists(img_path):
-                                                os.remove(img_path)
-                                                print(f"   [图片] 已删除临时图片文件: {img_path}")
-                                        except Exception as e:
-                                            print(f"   [图片] 删除图片文件时出错: {e}")
-
-                                    # 3. Send notification if recommended
-                                    if ai_analysis_result and ai_analysis_result.get('is_recommended'):
-                                        log_time("商品被AI推荐，准备发送通知...")
-                                        await send_ntfy_notification(item_data, ai_analysis_result.get("reason", "无"))
+                                # 3. Send notification if recommended
+                                if ai_analysis_result and ai_analysis_result.get('is_recommended'):
+                                    log_time("商品被AI推荐，准备发送通知...")
+                                    await send_ntfy_notification(item_data, ai_analysis_result.get("reason", "无"))
                                 # --- END: Real-time AI Analysis & Notification ---
 
                                 # 4. 保存包含AI结果的完整记录

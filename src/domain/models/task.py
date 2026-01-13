@@ -63,6 +63,27 @@ class TaskCreate(BaseModel):
     ai_prompt_criteria_file: str
     account_state_file: Optional[str] = None
 
+    # 允许前端把价格字段以 number 形式提交，这里统一转成字符串或 None
+    @validator('min_price', 'max_price', pre=True)
+    def convert_price_to_str(cls, v):
+        if v == "" or v == "null" or v == "undefined" or v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
+
+    @validator('cron', pre=True)
+    def empty_str_to_none(cls, v):
+        if v == "" or v == "null" or v == "undefined":
+            return None
+        return v
+
+    @validator('account_state_file', pre=True)
+    def empty_account_to_none(cls, v):
+        if v == "" or v == "null" or v == "undefined":
+            return None
+        return v
+
 
 class TaskUpdate(BaseModel):
     """更新任务的DTO"""

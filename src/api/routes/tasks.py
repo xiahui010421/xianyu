@@ -1,11 +1,11 @@
 """
 任务管理路由
 """
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Body
+from typing import List, Dict, Any
 import os
 import aiofiles
-from src.api.dependencies import get_task_service, get_process_service
+from src.api.dependencies import get_task_service, get_process_service, get_scheduler_service
 from src.services.task_service import TaskService
 from src.services.process_service import ProcessService
 from src.domain.models.task import Task, TaskCreate, TaskUpdate, TaskGenerateRequest
@@ -38,13 +38,29 @@ async def get_task(
     return task.dict()
 
 
-@router.post("/", response_model=dict)
+@router.post("", response_model=dict)
 async def create_task(
-    task_create: TaskCreate,
+    task_create: Dict[str, Any] = Body(...),
     service: TaskService = Depends(get_task_service),
+    scheduler_service=Depends(get_scheduler_service),
 ):
-    """创建新任务"""
-    task = await service.create_task(task_create)
+    """
+    创建新任务（前端已改为直接发送完整配置，兼容性更强的解析方式）
+    """
+    # 为了兼容不同前端版本，这里先接收原始字典，再用 Pydantic 做一次严格校验
+    try:
+        normalized = TaskCreate(**task_create)
+    except Exception as e:
+        # 打印调试信息到后端日志，方便排查字段问题
+        print("任务创建参数解析失败:", e, "payload:", task_create)
+        raise HTTPException(status_code=400, detail=f"任务参数错误: {e}")
+
+    task = await service.create_task(normalized)
+
+    # 创建/更新任务后，重新加载定时任务，使新的 cron 规则立即生效
+    tasks = await service.get_all_tasks()
+    await scheduler_service.reload_jobs(tasks)
+
     return {"message": "任务创建成功", "task": task.dict()}
 
 
@@ -136,6 +152,7 @@ async def update_task(
     task_id: int,
     task_update: TaskUpdate,
     service: TaskService = Depends(get_task_service),
+    scheduler_service=Depends(get_scheduler_service),
 ):
     """更新任务"""
     try:
@@ -189,6 +206,11 @@ async def update_task(
 
         # 执行任务更新
         task = await service.update_task(task_id, task_update)
+
+        # 任务更新后（尤其是 enabled / cron 改动），重新加载定时任务
+        tasks = await service.get_all_tasks()
+        await scheduler_service.reload_jobs(tasks)
+
         return {"message": "任务更新成功", "task": task.dict()}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

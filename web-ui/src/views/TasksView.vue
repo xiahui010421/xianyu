@@ -220,7 +220,7 @@ watch(
   <div>
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-800">
-        任务管理
+        任务管理（纯爬虫模式）
       </h1>
 
       <!-- Create Task Dialog -->
@@ -230,9 +230,9 @@ watch(
         </DialogTrigger>
         <DialogContent class="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>创建新监控任务 (AI驱动)</DialogTitle>
+            <DialogTitle>创建新监控任务</DialogTitle>
             <DialogDescription>
-              请填写任务详情。AI将根据你的“详细需求”自动生成分析标准。
+              请填写任务详情。系统会按关键词定期爬取最新商品，并去重、保存和推送通知，不再依赖 AI 分析。
             </DialogDescription>
           </DialogHeader>
           <TaskForm

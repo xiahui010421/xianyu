@@ -16,8 +16,9 @@ interface Props {
 const props = defineProps<Props>()
 
 const info = props.item.商品信息
-const seller = props.item.卖家信息
-const ai = props.item.ai_analysis
+// 兼容纯爬虫模式（可能没有卖家信息 / ai_analysis 字段）
+const seller = (props.item as any).卖家信息 || {}
+const ai = (props.item as any).ai_analysis || {}
 
 const isRecommended = ai?.is_recommended === true
 const recommendationText = isRecommended ? '推荐' : (ai?.is_recommended === false ? '不推荐' : '待定')

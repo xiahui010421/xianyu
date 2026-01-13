@@ -55,7 +55,10 @@ async def _parse_search_results_json(json_data: dict, source: str) -> list:
                 "卖家昵称": seller,
                 "商品链接": raw_link.replace("fleamarket://", "https://www.goofish.com/"),
                 "发布时间": datetime.fromtimestamp(int(pub_time_ts)/1000).strftime("%Y-%m-%d %H:%M") if pub_time_ts.isdigit() else "未知时间",
-                "商品ID": item_id
+                "商品ID": item_id,
+                # 为前端 ResultCard 提供主图字段，纯爬虫模式也能显示图片
+                "商品主图链接": image_url,
+                "商品图片列表": [image_url] if image_url else [],
             })
         print(f"LOG: ({source}) 成功解析到 {len(page_data)} 条商品基础信息。")
         return page_data
